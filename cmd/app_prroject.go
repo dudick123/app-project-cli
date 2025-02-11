@@ -18,6 +18,30 @@ func appProjectRepoExists(appProject AppProject, repoURL string) bool {
 	return false
 }
 
+func appProjectSourceNamespaceExists(appProject AppProject, namespace string) bool {
+	// Loop over the existing namespaces
+	for _, existingNamespace := range appProject.Spec.SourceNamespaces {
+		if existingNamespace == namespace {
+			fmt.Println("Namespace already exists in the AppProject YAML.")
+			return true
+		}
+	}
+
+	return false
+}
+
+func appProjectDestinationNamespaceExists(appProject AppProject, namespace string) bool {
+	// Loop over the existing namespaces
+	for _, existingNamespace := range appProject.Spec.Destinations {
+		if existingNamespace.Namespace == namespace {
+			fmt.Println("Namespace already exists in the AppProject YAML.")
+			return true
+		}
+	}
+
+	return false
+}
+
 func writeAppProjectFile(filePath string, appProject *AppProject) error {
 	// Marshal the updated struct back to YAML
 	updatedData, err := yaml.Marshal(&appProject)
@@ -51,6 +75,38 @@ func openAppProjectFile(filePath string) (*AppProject, error) {
 	}
 
 	return &appProject, nil
+}
+
+func addNamespaceToAppProject(filePath, namespace string) error {
+	// Open the AppProject file
+	appProject, err := openAppProjectFile(filePath)
+	if err != nil {
+		print("Error: %v\n", err)
+		return err
+	}
+
+	// Check if the namespace already exists
+	if appProjectSourceNamespaceExists(*appProject, namespace) {
+		return nil
+	}
+
+	if appProjectDestinationNamespaceExists(*appProject, namespace) {
+		return nil
+	}
+
+	// Add the namespace to the SourceNamespaces and Destinations
+	appProject.Spec.SourceNamespaces = append(appProject.Spec.SourceNamespaces, namespace)
+	appProject.Spec.Destinations = append(appProject.Spec.Destinations, Destination{Namespace: namespace, Server: "https://kubernetes.default.svc", Name: "in-cluster"})
+
+	// Write the updated AppProject back to the file
+	err = writeAppProjectFile(filePath, appProject)
+	if err != nil {
+		print("Error: %v\n", err)
+		return err
+	}
+
+	fmt.Printf("Namespace '%s' added to the AppProject YAML.\n", namespace)
+	return nil
 }
 
 func addRepoToAppProject(filePath, repoURL string) error {
